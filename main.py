@@ -10,7 +10,7 @@ def main(stdscr):
   stdscr.clear()
   stdscr.refresh()
 
-  load_users()
+  load_users(stdscr)
 
   user = login_screen(stdscr)
   if not user:

@@ -1,1 +1,43 @@
-
+{
+    "marz": {
+        "pin": 9876,
+        "tasks": [
+            {
+                "task": "polir o codigo do app",
+                "status": "pending",
+                "category": "General",
+                "date_added": "2024-09-11"
+            },
+            {
+                "task": "alterar o codigo para criar tbm uma categoria para cadatask",
+                "status": "pending",
+                "category": "General",
+                "date_added": "2024-09-11"
+            },
+            {
+                "task": "criar um filtro de display de categorias",
+                "status": "pending",
+                "category": "features",
+                "date_added": "2024-09-11"
+            },
+            {
+                "task": "criar uma descricao para cada task e acessar ao apertar enter podendo tbm fazer modificacao na tarefa ou na descricao",
+                "status": "pending",
+                "category": "feature",
+                "date_added": "2024-09-11"
+            },
+            {
+                "task": "melhorar a interface visual interativa",
+                "status": "pending",
+                "category": "update",
+                "date_added": "2024-09-11"
+            },
+            {
+                "task": "criar reminder que gera pop up de notificacao",
+                "status": "pending",
+                "category": "feature",
+                "date_added": "2024-09-11"
+            }
+        ]
+    }
+}

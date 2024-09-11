@@ -5,8 +5,6 @@ import datetime
 
 users={}
 
-def
-
 def init_curses_colors():
   curses.start_color()
   curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE) # Highlight
@@ -19,7 +17,7 @@ def save_users():
   with open('users.json', 'w') as f:
     json.dump(users, f, indent=4)
 
-def load_users():
+def load_users(stdscr):
   global users
   if os.path.exists('users.json'):
     with open('users.json', 'r') as f:
@@ -164,7 +162,7 @@ def handle_task_addition(stdscr, user):
   curses.echo()
   new_task = stdscr.getstr(1, 0).decode('utf-8').strip()
 
-  stdscr.addstr(2,0 'Enter the task category: ')
+  stdscr.addstr(2,0, 'Enter the task category: ')
   new_category = stdscr.getstr(3,0).decode('utf-8').strip()
 
   curses.noecho()
