@@ -26,6 +26,14 @@ def load_users(stdscr):
     users={}
     display_message(stdscr,'No users.json file found. Initialized empty users dictionary.',5)
 
+def display_msg(stdscr, message, color_pair=None, y_offset=0):
+  h, w = stdscr.getmaxyx()
+  stdscr.addstr(h // 2 + y_offset, w // 2 - len(message) // 2, message)
+  if color_pair:
+    stdscr.attron(curses.color_pair(color_pair))
+    stdscr.attroff(curses.color_pair(color_pair))
+  stdscr.refresh()
+
 def login_screen(stdscr):
   if users is None:
     raise ValueError('The users dictionary is not properly initialized.')
