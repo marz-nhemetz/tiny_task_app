@@ -24,15 +24,7 @@ def load_users(stdscr):
       users=json.load(f)
   else:
     users={}
-    display_message(stdscr,'No users.json file found. Initialized empty users dictionary.',5)
-
-def display_msg(stdscr, message, color_pair=None, y_offset=0):
-  h, w = stdscr.getmaxyx()
-  stdscr.addstr(h // 2 + y_offset, w // 2 - len(message) // 2, message)
-  if color_pair:
-    stdscr.attron(curses.color_pair(color_pair))
-    stdscr.attroff(curses.color_pair(color_pair))
-  stdscr.refresh()
+    display_message(stdscr,'No users.json file found. Initialized empty users dictionary.', color_pair=5, bottom=True)
 
 def prompt_user_input(stdscr,prompt,y_offset):
   h, w = stdscr.getmaxyx()
@@ -60,14 +52,14 @@ def login_screen(stdscr):
   while True:
     stdscr.clear()
     h, w = stdscr.getmaxyx()
-    display_msg(stdscr, '🎉 Welcome to Tiny Task App 🎉', curses.A_BOLD, -6)
+    display_message(stdscr, '🎉 Welcome to Tiny Task App 🎉', attr=curses.A_BOLD, y_offset=-6)
 
     username = prompt_user_input(stdscr, 'USERNAME: ', -4)
 
     # Validate username
     if username not in users:
-      display_message(stdscr, "❌ User not found!", curses.color_pair(5))
-      display_message(stdscr, "Register? (y/n)", curses.A_DIM, 1)
+      display_message(stdscr, "❌ User not found!", color_pair=5, y_offset=5)
+      display_message(stdscr, "Register? (y/n)", attr=curses.A_DIM, y_offset=1)
       key = stdscr.getch()
 
       if key in [ord('y'), ord('Y')]:
@@ -75,36 +67,47 @@ def login_screen(stdscr):
           if pin_int is not None:
             users[username] = {"pin": pin_int, "tasks": []}
             save_users()  # Save to users.json
-            display_message(stdscr, 'Registration successful! Press any key to continue.', curses.color_pair(4), 5)
+            display_message(stdscr, 'Registration successful! Press any key to continue.', color_pair=4, y_offset=5)
             stdscr.getch()
             return username
       continue
 
-  pin = prompt_user_input(stdscr, 'Please enter your PIN:', 1)
+    pin = prompt_user_input(stdscr, 'PIN:', 1)
 
-  try:
-    pin_int = int(pin)
-  except ValueError:
-    display_message(stdscr, "❌ Invalid PIN format!", curses.color_pair(5), 4)
-    display_message(stdscr, "Press any key to try again.", curses.A_DIM, 5)
-    stdscr.getch()
-    continue
+    try:
+      pin_int = int(pin)
+    except ValueError:
+      display_message(stdscr, "❌ Invalid PIN format!", color_pair=5, y_offset=4)
+      display_message(stdscr, "Press any key to try again.", attr=curses.A_DIM, y_offset=5)
+      stdscr.getch()
+      continue
 
-  if pin_int == users[username]['pin']:
-    display_message(stdscr, "✅ Login successful!", curses.color_pair(4), 4)
-    display_message(stdscr, "Press any key to continue.", curses.A_DIM, 5)
-    stdscr.getch()
-    return username
-  else:
-    display_message(stdscr, "❌ Incorrect PIN!", curses.color_pair(5), 4)
-    display_message(stdscr, "Press any key to try again.", curses.A_DIM, 5)
-    stdscr.getch()
+    if pin_int == users[username]['pin']:
+      display_message(stdscr, "✅ Login successful!", color_pair=4, y_offset=4)
+      display_message(stdscr, "Press any key to continue.", attr=curses.A_DIM, y_offset=5)
+      stdscr.getch()
+      return username
+    else:
+      display_message(stdscr, "❌ Incorrect PIN!",  color_pair=5, y_offset=4)
+      display_message(stdscr, "Press any key to try again.", attr=curses.A_DIM, y_offset=5)
+      stdscr.getch()
 
-def display_tasks(stdscr,user,current_row):
+def display_tasks(stdscr, user, current_row, selected_category=None):
   # Function to display tasks on the screen
   tasks = users[user]['tasks']
-  h,w=stdscr.getmaxyx()
 
+  # Filter tasks based on the selected category
+
+  filtered_tasks = [task for task in tasks if task['category'] == selected_category] if selected_category else tasks
+  h ,w = stdscr.getmaxyx()
+
+  # Display the current category at the top
+  if selected_category:
+    category_display = f'Category: {selected_category}'
+  else:
+    category_display = 'Category: All'
+
+  stdscr.addstr(0,w//2-len(category_display) // 2, category_display, curses.A_BOLD)
   if not tasks:
     stdscr.addstr(h//2, w//2 - len("No tasks available.")//2, "No tasks available.")
   else:
@@ -123,25 +126,46 @@ def display_tasks(stdscr,user,current_row):
 
         max_task_length = w - 4  # Adjust based on screen width
         task_display = f'{checkbox} {task[:max_task_length]}' if len(task) > max_task_length else f'{checkbox} {task}'
-        stdscr.addstr(h//2 - len(tasks)//2 + idx, w//2 - len(task_display)//2, task_display)
+        stdscr.addstr(h//2 - len(filtered_tasks)//2 + idx, w//2 - len(task_display)//2, task_display)
 
         stdscr.attroff(curses.color_pair(1))
         stdscr.attroff(curses.color_pair(2))
         stdscr.attroff(curses.color_pair(3))
 
-def display_message(stdscr,message,color_pair=None):
-  # Function to display a message at the bottom of the screen
-  h, w = stdscr.getmaxyx()
-  stdscr.move(h - 2, 0)
-  stdscr.clrtoeol()  # Clear the line before displaying the message
+def display_message(stdscr, message, color_pair=None, y_offset = 0, bottom=False, attr=None):
+  """
+    Displays a message on the screen, centered with optional color, positioning and tex attributes.
 
+    Args:
+      stdscr: The curses screen object.
+      message (str): The message to display.
+      color_pair (int, optional): The curses color pair to use.
+      y_offset (int, optional): Vertical offset for the message.
+      bottom (bool, optional): If True, display the message at the bottom of the screen.
+      attr (int, optional): Curses text attribute (e.g., curses.A_BOLD, curses.A_DIM).
+  """
+  h, w = stdscr.getmaxyx()
+
+  if bottom:
+    y = h - 2 # Displays near the bottom
+    stdscr.move(y, 0)
+    stdscr.clrtoeol()  # Clear the line before displaying the message
+  else:
+    y = h // 2 + y_offset # Display the message at the center with offset
+
+  # Apply color if provided
   if color_pair:
     stdscr.attron(curses.color_pair(color_pair))
 
-  stdscr.addstr(h - 2, w // 2 - len(message) // 2, message)
+  if attr:
+    stdscr.attron(attr)
+
+  stdscr.addstr(y, w // 2 - len(message) // 2, message)
 
   if color_pair:
     stdscr.attroff(curses.color_pair(color_pair))
+  if attr:
+    stdscr.attroff(attr)
 
   stdscr.refresh()
 
@@ -164,9 +188,9 @@ def handle_task_addition(stdscr, user):
       'date_added': str(datetime.date.today())
     })
     save_users()
-    display_message(stdscr, "Task added successfully!", 4)
+    display_message(stdscr, "Task added successfully!", color_pair=4, bottom=True, attr=curses.A_DIM)
   else:
-    display_message(stdscr, "No task entered. Task not added.", 5)
+    display_message(stdscr, "No task entered. Task not added.", color_pair=5, bottom=True, attr=curses.A_DIM)
 
 
 def handle_task_completion(user, current_row):
@@ -179,11 +203,18 @@ def handle_task_removal(user,current_row):
 
 def task_screen(stdscr, user):
   current_row = 0
-  tasks = users[user]['tasks']
+  selected_category = None
+  categories = {task['category'] for task in users[user]['tasks']} # Get unique categories
+  categories = ['All'] + list(categories) # 'All' will show all tasks
+  category_index = 0
 
   while True:
     stdscr.clear()
-    display_tasks(stdscr,user,current_row)
+    # Filter tasks by the current selected category
+    category_to_display = None if categories[category_index] == 'All' else categories[category_index]
+    stdscr.clear()
+
+    display_tasks(stdscr, user, current_row, category_to_display)
     stdscr.refresh()
 
     key = stdscr.getch()
@@ -191,17 +222,23 @@ def task_screen(stdscr, user):
     # Navigation
     if key == curses.KEY_UP and current_row > 0:
       current_row -= 1
-    elif key == curses.KEY_DOWN and current_row < len(tasks) - 1:
+    elif key == curses.KEY_DOWN and current_row < len(users[user]['tasks']) - 1:
       current_row += 1
+    # Switch category filter
+    elif key == ord('f'):
+      category_index = (category_index + 1) % len(categories)
+      current_row = 0 # Reset the selected row when switching categories
     # Mark task as completed
     elif key == ord('c'):
       handle_task_completion(user,current_row)
-      display_message(stdscr, "Task marked as completed!", 4)
+      display_message(stdscr, "Task marked as completed!", 4, True)
     # Delete task
     elif key == ord('x'):
       handle_task_removal(user,current_row)
       current_row = min(current_row, len(users[user]['tasks']) - 1)
-      display_message(stdscr, 'Task removed successfully!', 4)
+      if not users[user]['tasks']:
+        current_row = 0 # Reset if no tasks remain
+      display_message(stdscr, 'Task removed successfully!', 4, True)
     # Add new task
     elif key == ord('n'):
       handle_task_addition(stdscr, user)
