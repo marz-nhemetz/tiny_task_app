@@ -34,6 +34,25 @@ def display_msg(stdscr, message, color_pair=None, y_offset=0):
     stdscr.attroff(curses.color_pair(color_pair))
   stdscr.refresh()
 
+def prompt_user_input(stdscr,prompt,y_offset):
+  h, w = stdscr.getmaxyx()
+  stdscr.addstr(h // 2 + y_offset, w // 2 - len(prompt) // 2, prompt)
+  curses.echo()
+  user_input = stdscr.getstr(h // 2 + y_offset + 1, w // 2 - len(prompt) // 2).decode('utf-8').strip()
+  curses.noecho()
+  return user_input
+
+def register_user(stdscr):
+  stdscr.clear()
+  pin = prompt_user_input(stdscr, 'Enter a PIN to register:', 3)
+  try:
+    pin_int = int(pin)
+    return pin_int
+  except ValueError:
+    display_message(stdscr, 'Invalid PIN format! Press any key to try again.', color_pair=5, y_offset=5)
+    stdscr.getch()
+    return None
+
 def login_screen(stdscr):
   if users is None:
     raise ValueError('The users dictionary is not properly initialized.')
@@ -41,80 +60,45 @@ def login_screen(stdscr):
   while True:
     stdscr.clear()
     h, w = stdscr.getmaxyx()
+    display_msg(stdscr, '🎉 Welcome to Tiny Task App 🎉', curses.A_BOLD, -6)
 
-    # Display welcome message
-    welcome_msg = '🎉 Welcome to Tiny Task App 🎉'
-    stdscr.addstr(h//2-6, w//2 - len(welcome_msg)//2, welcome_msg, curses.A_BOLD)
-
-    # Prompt for username
-    stdscr.addstr(h//2-4, w//2 - len('Please enter your username:')//2, 'Please enter your username:')
-    curses.echo()
-    username = stdscr.getstr(h//2-3, w//2 - len('username:')//2).decode('utf-8').strip()
-    curses.noecho()
+    username = prompt_user_input(stdscr, 'USERNAME: ', -4)
 
     # Validate username
     if username not in users:
-      stdscr.addstr(h//2, w//2 - len("❌ User not found!")//2, "❌ User not found!", curses.A_BOLD | curses.color_pair(5))
-      stdscr.addstr(h//2 + 1, w//2 - len("Register? (y/n)")//2, "Register? (y/n)", curses.A_DIM)
-      stdscr.refresh()
+      display_message(stdscr, "❌ User not found!", curses.color_pair(5))
+      display_message(stdscr, "Register? (y/n)", curses.A_DIM, 1)
       key = stdscr.getch()
 
       if key in [ord('y'), ord('Y')]:
-        # Register the new user
-        stdscr.addstr(h//2+3,w//2-len('Enter a PIN to register:')//2,'Enter a PIN to register:')
-        curses.echo()
-        pin = stdscr.getstr(h//2+4,w//2-len('PIN:')//2).decode('utf-8')
-        curses.noecho()
+          pin_int = register_user(stdscr)
+          if pin_int is not None:
+            users[username] = {"pin": pin_int, "tasks": []}
+            save_users()  # Save to users.json
+            display_message(stdscr, 'Registration successful! Press any key to continue.', curses.color_pair(4), 5)
+            stdscr.getch()
+            return username
+      continue
 
-        try:
-          pin_int=int(pin.strip())
-        except ValueError:
-          stdscr.addstr(h // 2 + 5, w // 2 - len('Invalid PIN format! Press any key to try again.') // 2, 'Invalid PIN format! Press any key to try again.')
-          stdscr.refresh()
-          stdscr.getch()
-          continue
-        # Add new user to the users dictionary and save to file
-        users[username] = {"pin": pin_int, "tasks": []}
-        save_users()  # Save to users.json
-        stdscr.addstr(h // 2 + 5, w // 2 - len('Registration successful! Press any key to continue.') // 2, 'Registration successful! Press any key to continue.')
-        stdscr.refresh()
-        stdscr.getch()
-        return username
-      else:
-        # User chose not to register, try again
-        continue
-    else:
-      # Exiting user, ask for PIN
-      # Prompt for PIN
-      stdscr.addstr(h//2+1, w//2 - len('Please enter your PIN:')//2, 'Please enter your PIN:')
-      curses.echo()
-      pin = stdscr.getstr(h//2+2, w//2 - len('PIN:')//2).decode('utf-8').strip()
-      curses.noecho()
-      stdscr.refresh()
-      stdscr.getch()
+  pin = prompt_user_input(stdscr, 'Please enter your PIN:', 1)
 
-      # PIN validation
-      try:
-        pin_int = int(pin)
-      except ValueError:
-        stdscr.addstr(h//2+4, w//2 - len("❌ Invalid PIN format!")//2, "❌ Invalid PIN format!", curses.A_BOLD | curses.color_pair(5))
-        stdscr.addstr(h//2+5, w//2 - len("Press any key to try again.")//2, "Press any key to try again.", curses.A_DIM)
-        stdscr.refresh()
-        stdscr.getch()
-        continue
+  try:
+    pin_int = int(pin)
+  except ValueError:
+    display_message(stdscr, "❌ Invalid PIN format!", curses.color_pair(5), 4)
+    display_message(stdscr, "Press any key to try again.", curses.A_DIM, 5)
+    stdscr.getch()
+    continue
 
-      if pin_int == users[username]['pin']:
-        stdscr.addstr(h//2+4, w//2 - len("✅ Login successful!")//2, "✅ Login successful!", curses.A_BOLD | curses.color_pair(4))
-        stdscr.addstr(h//2+5, w//2 - len("Press any key to continue.")//2, "Press any key to continue.", curses.A_DIM)
-        stdscr.refresh()
-        stdscr.getch()
-        return username
-      else:
-        stdscr.addstr(h//2+4, w//2 - len("❌ Incorrect PIN!")//2, "❌ Incorrect PIN!", curses.A_BOLD | curses.color_pair(5))
-        stdscr.addstr(h//2+5, w//2 - len("Press any key to try again.")//2, "Press any key to try again.", curses.A_DIM)
-        stdscr.refresh()
-        stdscr.getch()
-        continue
+  if pin_int == users[username]['pin']:
+    display_message(stdscr, "✅ Login successful!", curses.color_pair(4), 4)
+    display_message(stdscr, "Press any key to continue.", curses.A_DIM, 5)
+    stdscr.getch()
+    return username
+  else:
+    display_message(stdscr, "❌ Incorrect PIN!", curses.color_pair(5), 4)
+    display_message(stdscr, "Press any key to try again.", curses.A_DIM, 5)
+    stdscr.getch()
 
 def display_tasks(stdscr,user,current_row):
   # Function to display tasks on the screen
@@ -137,12 +121,9 @@ def display_tasks(stdscr,user,current_row):
         else:
           stdscr.attron(curses.color_pair(3))  # Yellow for pending
 
-
         max_task_length = w - 4  # Adjust based on screen width
         task_display = f'{checkbox} {task[:max_task_length]}' if len(task) > max_task_length else f'{checkbox} {task}'
         stdscr.addstr(h//2 - len(tasks)//2 + idx, w//2 - len(task_display)//2, task_display)
-
-        #stdscr.addstr(h//2 - len(tasks)//2 + idx, w//2 - len(task)//2, f'{checkbox} {task}')
 
         stdscr.attroff(curses.color_pair(1))
         stdscr.attroff(curses.color_pair(2))
