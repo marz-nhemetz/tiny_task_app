@@ -108,10 +108,10 @@ def display_tasks(stdscr, user, current_row, selected_category=None):
     category_display = 'Category: All'
 
   display_message(stdscr, category_display, y=0,x=w//2-len(category_display)//2, attr=curses.A_BOLD)
-  if not tasks:
+  if not filtered_tasks:
     display_message(stdscr, "No tasks available.", y=h // 2, x=w // 2 - len("No tasks available.") // 2)
   else:
-      for idx, task_info in enumerate(tasks):
+      for idx, task_info in enumerate(filtered_tasks):
         task = task_info['task']
         status = task_info['status']
         category = task_info['category']
