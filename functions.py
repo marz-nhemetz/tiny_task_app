@@ -88,8 +88,8 @@ def login_screen(stdscr):
       stdscr.getch()
       return username
     else:
-      display_message(stdscr, "❌ Incorrect PIN!",  color_pair=5, y_offset=4)
-      display_message(stdscr, "Press any key to try again.", attr=curses.A_DIM, y_offset=5)
+      display_message(stdscr, "❌ Incorrect PIN!",  color_pair=5, y_offset=-3)
+      display_message(stdscr, "Press any key to try again.", attr=curses.A_DIM, y_offset=-4)
       stdscr.getch()
 
 def display_tasks(stdscr, user, current_row, selected_category=None):
@@ -177,7 +177,6 @@ def handle_task_addition(stdscr, user):
   curses.echo()
   new_task = stdscr.getstr(1, 0).decode('utf-8').strip()
 
-  stdscr.addstr(2,0, 'Enter the task category: ')
   display_message(stdscr, 'Enter the task category: ', y=2,x=0)
   new_category = stdscr.getstr(3,0).decode('utf-8').strip()
 
@@ -188,7 +187,8 @@ def handle_task_addition(stdscr, user):
       'task': new_task,
       'status': 'pending',
       'category': new_category if new_category else 'General',
-      'date_added': str(datetime.date.today())
+      'date_added': str(datetime.date.today()),
+      'description': [] # Add an empty description list
     })
     save_users()
     display_message(stdscr, "Task added successfully!", color_pair=4, bottom=True, attr=curses.A_DIM)
@@ -231,17 +231,17 @@ def task_screen(stdscr, user):
     elif key == ord('f'):
       category_index = (category_index + 1) % len(categories)
       current_row = 0 # Reset the selected row when switching categories
+    elif key == ord('d'):
+      task_detail_screen(stdscr, user, current_row)
     # Mark task as completed
     elif key == ord('c'):
       handle_task_completion(user,current_row)
-      display_message(stdscr, "Task marked as completed!", 4, True)
     # Delete task
     elif key == ord('x'):
       handle_task_removal(user,current_row)
       current_row = min(current_row, len(users[user]['tasks']) - 1)
       if not users[user]['tasks']:
         current_row = 0 # Reset if no tasks remain
-      display_message(stdscr, 'Task removed successfully!', 4, True)
     # Add new task
     elif key == ord('n'):
       handle_task_addition(stdscr, user)
@@ -249,3 +249,70 @@ def task_screen(stdscr, user):
     elif key == 27:  # ESC key to exit
       break
 
+def task_detail_screen(stdscr, user, task_index):
+  task_info = users[user]['tasks'][task_index]
+  task_name = task_info['task']
+  description = task_info['description']
+  current_row = 0
+
+  while True:
+    stdscr.clear()
+    h, w = stdscr.getmaxyx()
+
+    # Display the task name at the top
+    stdscr.addstr(0, w // 2 - len(task_name) // 2, task_name, curses.A_BOLD)
+
+    if description:
+      for idx, subtask_info in enumerate(description):
+        subtask = subtask_info['subtask']
+        status = subtask_info['status']
+        checkbox = '☑' if status == 'completed' else '☐'
+
+        if idx == current_row:
+          stdscr.attron(curses.color_pair(1))  # Highlight selected sub-task
+        elif status == 'completed':
+          stdscr.attron(curses.color_pair(2))  # Completed sub-task color
+        else:
+          stdscr.attron(curses.color_pair(3))  # Pending sub-task color
+
+        subtask_display = f'{checkbox} {subtask}'
+        stdscr.addstr(h // 2 - len(description) // 2 + idx, w // 2 - len(subtask_display) // 2, subtask_display)
+
+        stdscr.attroff(curses.color_pair(1))
+        stdscr.attroff(curses.color_pair(2))
+        stdscr.attroff(curses.color_pair(3))
+    else:
+      stdscr.addstr(h // 2, w // 2 - len("No description available.") // 2, "No description available.")
+
+    # Refresh screen
+    stdscr.refresh()
+
+    key = stdscr.getch()
+
+    # Navigation
+    if key == curses.KEY_UP and current_row > 0:
+      current_row -= 1
+    elif key == curses.KEY_DOWN and current_row < len(description) - 1:
+      current_row += 1
+    # Rename task
+    elif key == ord('r'):
+      task_info['task'] = prompt_user_input(stdscr, "Rename task:", 1)
+      save_users()
+    # Add sub-task
+    elif key == ord('n'):
+      new_subtask = prompt_user_input(stdscr, "New sub-task:", 1)
+      if new_subtask:
+        description.append({'subtask': new_subtask, 'status': 'pending'})
+        save_users()
+    # Mark sub-task as completed
+    elif key == ord('c'):
+      description[current_row]['status'] = 'completed'
+      save_users()
+    # Remove sub-task
+    elif key == ord('x'):
+      del description[current_row]
+      current_row = min(current_row, len(description) - 1)
+      save_users()
+    # Exit detail screen
+    elif key == 27:  # ESC key to exit
+      break
