@@ -14,8 +14,11 @@ def init_curses_colors():
   curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_RED) # Error
 
 def save_users():
-  with open('users.json', 'w') as f:
-    json.dump(users, f, indent=4)
+  try:
+    with open('users.json', 'w') as f:
+      json.dump(users, f, indent=4)
+  except IOError as e:
+    display_message(stdscr, f'Error saving data: {e}', color_pair=5, bottom=True, attr=curses.A_BOLD)
 
 def load_users(stdscr):
   global users
@@ -26,13 +29,17 @@ def load_users(stdscr):
     users={}
     display_message(stdscr,'No users.json file found. Initialized empty users dictionary.', color_pair=5, bottom=True)
 
-def prompt_user_input(stdscr,prompt,y_offset):
+def prompt_user_input(stdscr, prompt, y_offset):
   h, w = stdscr.getmaxyx()
   display_message(stdscr, prompt, y=h // 2 + y_offset, x=w // 2 - len(prompt) // 2)
   curses.echo()
-  user_input = stdscr.getstr(h // 2 + y_offset + 1, w // 2 - len(prompt) // 2).decode('utf-8').strip()
-  curses.noecho()
-  return user_input
+  while True:
+    user_input = stdscr.getstr(h // 2 + y_offset + 1, w // 2 - len(prompt) // 2).decode('utf-8').strip()
+    if user_input:
+      curses.noecho()
+      return user_input
+    else:
+      display_message(stdscr, "Input cannot be empty. Please try again.", color_pair=5,y_offset=3)
 
 def register_user(stdscr):
   stdscr.clear()
@@ -92,29 +99,36 @@ def login_screen(stdscr):
       display_message(stdscr, "Press any key to try again.", attr=curses.A_DIM, y_offset=-4)
       stdscr.getch()
 
-def display_tasks(stdscr, user, current_row, selected_category=None):
+def display_tasks(stdscr, user, current_row, selected_category=None, sort_by='date_added', ascending=True):
   # Function to display tasks on the screen
   tasks = users[user]['tasks']
-
   # Filter tasks based on the selected category
-
   filtered_tasks = [task for task in tasks if task['category'] == selected_category] if selected_category else tasks
+
+  # Sort tasks based on the sort_by parameter
+  if sort_by == 'date_added':
+    sorted_tasks = sorted(
+      filtered_tasks, key=lambda x: datetime.datetime.strptime(x[sort_by], '%Y-%m-%d'),
+      reverse = not ascending
+    )
+  elif sort_by == 'status':
+    sorted_tasks = sorted(filtered_tasks, key=lambda x: x['status'])
+  else:
+    sorted_tasks = filtered_tasks
+
   h ,w = stdscr.getmaxyx()
 
   # Display the current category at the top
-  if selected_category:
-    category_display = f'Category: {selected_category}'
-  else:
-    category_display = 'Category: All'
+  category_display = f'Category: {selected_category}' if selected_category else 'Category: All'
 
   display_message(stdscr, category_display, y=0,x=w//2-len(category_display)//2, attr=curses.A_BOLD)
-  if not filtered_tasks:
+
+  if not sorted_tasks:
     display_message(stdscr, "No tasks available.", y=h // 2, x=w // 2 - len("No tasks available.") // 2)
   else:
-      for idx, task_info in enumerate(filtered_tasks):
+      for idx, task_info in enumerate(sorted_tasks):
         task = task_info['task']
         status = task_info['status']
-        category = task_info['category']
         checkbox = '☑' if status == 'completed' else '☐'
 
         if idx == current_row:
@@ -124,9 +138,8 @@ def display_tasks(stdscr, user, current_row, selected_category=None):
         else:
           stdscr.attron(curses.color_pair(3))  # Yellow for pending
 
-        max_task_length = w - 4  # Adjust based on screen width
-        task_display = f'{checkbox} {task[:max_task_length]}' if len(task) > max_task_length else f'{checkbox} {task}'
-        display_message(stdscr, task_display, y=h // 2 - len(filtered_tasks) // 2 + idx, x=w // 2 - len(task_display) // 2)
+        task_display = f'{checkbox} {task[:w-4]}'
+        display_message(stdscr, task_display, y=h // 2 - len(sorted_tasks) // 2 + idx, x=w // 2 - len(task_display) // 2)
 
         stdscr.attroff(curses.color_pair(1))
         stdscr.attroff(curses.color_pair(2))
@@ -177,9 +190,12 @@ def handle_task_addition(stdscr, user):
   curses.echo()
   new_task = stdscr.getstr(1, 0).decode('utf-8').strip()
 
-  display_message(stdscr, 'Enter the task category: ', y=2,x=0)
-  new_category = stdscr.getstr(3,0).decode('utf-8').strip()
+  if not new_task:
+    display_message(stdscr, 'No task entered. Task not added,', color_pair=5, bottom=True, attr=curses.A_DIM)
+    return
 
+  display_message(stdscr, 'Enter the task category: ', y=2,x=0)
+  new_category = stdscr.getstr(3,0).decode('utf-8').strip() or 'General'
   curses.noecho()
 
   if new_task:
@@ -210,14 +226,20 @@ def task_screen(stdscr, user):
   categories = {task['category'] for task in users[user]['tasks']} # Get unique categories
   categories = ['All'] + list(categories) # 'All' will show all tasks
   category_index = 0
+  sort_ascending = True # Variable to keep track of sorting order (True for ascending)
 
   while True:
     stdscr.clear()
     # Filter tasks by the current selected category
     category_to_display = None if categories[category_index] == 'All' else categories[category_index]
-    stdscr.clear()
 
-    display_tasks(stdscr, user, current_row, category_to_display)
+    # Display tasks, sorted by date (ascending or descending)
+    sort_by = 'date_added'
+
+    sorting_state_display = 'Sorting: Ascending' if sort_ascending else 'Sorting: Descending'
+    stdscr.addstr(0, 0, sorting_state_display, curses.A_BOLD)
+
+    display_tasks(stdscr, user, current_row, selected_category=category_to_display, sort_by=sort_by, ascending=sort_ascending)
     stdscr.refresh()
 
     key = stdscr.getch()
@@ -231,6 +253,10 @@ def task_screen(stdscr, user):
     elif key == ord('f'):
       category_index = (category_index + 1) % len(categories)
       current_row = 0 # Reset the selected row when switching categories
+    elif key == ord('s'):
+      sort_ascending = not sort_ascending
+      display_message(stdscr, 'toggle toggling ', bottom=True)
+
     elif key == ord('d'):
       task_detail_screen(stdscr, user, current_row)
     # Mark task as completed
@@ -296,8 +322,11 @@ def task_detail_screen(stdscr, user, task_index):
       current_row += 1
     # Rename task
     elif key == ord('r'):
-      task_info['task'] = prompt_user_input(stdscr, "Rename task:", 1)
-      save_users()
+      new_name = prompt_user_input(stdscr, "Rename task:", 1)
+      if new_name:
+        task_info['task'] = new_name
+        task_name = new_name
+        save_users()
     # Add sub-task
     elif key == ord('n'):
       new_subtask = prompt_user_input(stdscr, "New sub-task:", 1)
