@@ -28,7 +28,7 @@ def load_users(stdscr):
 
 def prompt_user_input(stdscr,prompt,y_offset):
   h, w = stdscr.getmaxyx()
-  stdscr.addstr(h // 2 + y_offset, w // 2 - len(prompt) // 2, prompt)
+  display_message(stdscr, prompt, y=h // 2 + y_offset, x=w // 2 - len(prompt) // 2)
   curses.echo()
   user_input = stdscr.getstr(h // 2 + y_offset + 1, w // 2 - len(prompt) // 2).decode('utf-8').strip()
   curses.noecho()
@@ -36,7 +36,7 @@ def prompt_user_input(stdscr,prompt,y_offset):
 
 def register_user(stdscr):
   stdscr.clear()
-  pin = prompt_user_input(stdscr, 'Enter a PIN to register:', 3)
+  pin = prompt_user_input(stdscr, 'Enter a PIN to register:', y_offset=3)
   try:
     pin_int = int(pin)
     return pin_int
@@ -52,13 +52,13 @@ def login_screen(stdscr):
   while True:
     stdscr.clear()
     h, w = stdscr.getmaxyx()
-    display_message(stdscr, '🎉 Welcome to Tiny Task App 🎉', attr=curses.A_BOLD, y_offset=-6)
+    display_message(stdscr, '🎉 Welcome to Tiny Task App 🎉', attr=curses.A_BOLD, y_offset=8)
 
-    username = prompt_user_input(stdscr, 'USERNAME: ', -4)
+    username = prompt_user_input(stdscr, 'USERNAME: ', y_offset=-4)
 
     # Validate username
     if username not in users:
-      display_message(stdscr, "❌ User not found!", color_pair=5, y_offset=5)
+      display_message(stdscr, "❌ User not found!", color_pair=5, y=5)
       display_message(stdscr, "Register? (y/n)", attr=curses.A_DIM, y_offset=1)
       key = stdscr.getch()
 
@@ -72,19 +72,19 @@ def login_screen(stdscr):
             return username
       continue
 
-    pin = prompt_user_input(stdscr, 'PIN:', 1)
+    pin = prompt_user_input(stdscr, 'USERPIN:', y_offset=-2)
 
     try:
       pin_int = int(pin)
     except ValueError:
-      display_message(stdscr, "❌ Invalid PIN format!", color_pair=5, y_offset=4)
-      display_message(stdscr, "Press any key to try again.", attr=curses.A_DIM, y_offset=5)
+      display_message(stdscr, "❌ Invalid PIN format!", color_pair=5, y_offset=-3)
+      display_message(stdscr, "Press any key to try again.", attr=curses.A_DIM, y_offset=-4)
       stdscr.getch()
       continue
 
     if pin_int == users[username]['pin']:
-      display_message(stdscr, "✅ Login successful!", color_pair=4, y_offset=4)
-      display_message(stdscr, "Press any key to continue.", attr=curses.A_DIM, y_offset=5)
+      display_message(stdscr, "✅ Login successful!", color_pair=4, y_offset=-3)
+      display_message(stdscr, "Press any key to continue.", attr=curses.A_DIM, y_offset=-4)
       stdscr.getch()
       return username
     else:
@@ -107,9 +107,9 @@ def display_tasks(stdscr, user, current_row, selected_category=None):
   else:
     category_display = 'Category: All'
 
-  stdscr.addstr(0,w//2-len(category_display) // 2, category_display, curses.A_BOLD)
+  display_message(stdscr, category_display, y=0,x=w//2-len(category_display)//2, attr=curses.A_BOLD)
   if not tasks:
-    stdscr.addstr(h//2, w//2 - len("No tasks available.")//2, "No tasks available.")
+    display_message(stdscr, "No tasks available.", y=h // 2, x=w // 2 - len("No tasks available.") // 2)
   else:
       for idx, task_info in enumerate(tasks):
         task = task_info['task']
@@ -126,13 +126,13 @@ def display_tasks(stdscr, user, current_row, selected_category=None):
 
         max_task_length = w - 4  # Adjust based on screen width
         task_display = f'{checkbox} {task[:max_task_length]}' if len(task) > max_task_length else f'{checkbox} {task}'
-        stdscr.addstr(h//2 - len(filtered_tasks)//2 + idx, w//2 - len(task_display)//2, task_display)
+        display_message(stdscr, task_display, y=h // 2 - len(filtered_tasks) // 2 + idx, x=w // 2 - len(task_display) // 2)
 
         stdscr.attroff(curses.color_pair(1))
         stdscr.attroff(curses.color_pair(2))
         stdscr.attroff(curses.color_pair(3))
 
-def display_message(stdscr, message, color_pair=None, y_offset = 0, bottom=False, attr=None):
+def display_message(stdscr, message, color_pair=None, y_offset=None,y = None, x=None, bottom=False, attr=None):
   """
     Displays a message on the screen, centered with optional color, positioning and tex attributes.
 
@@ -140,7 +140,8 @@ def display_message(stdscr, message, color_pair=None, y_offset = 0, bottom=False
       stdscr: The curses screen object.
       message (str): The message to display.
       color_pair (int, optional): The curses color pair to use.
-      y_offset (int, optional): Vertical offset for the message.
+      y (int, optional): The row to display the message, if none, it centers vertically.
+      x (int, opitional): The column to display the message, if none it centers horizontally.
       bottom (bool, optional): If True, display the message at the bottom of the screen.
       attr (int, optional): Curses text attribute (e.g., curses.A_BOLD, curses.A_DIM).
   """
@@ -150,9 +151,10 @@ def display_message(stdscr, message, color_pair=None, y_offset = 0, bottom=False
     y = h - 2 # Displays near the bottom
     stdscr.move(y, 0)
     stdscr.clrtoeol()  # Clear the line before displaying the message
-  else:
-    y = h // 2 + y_offset # Display the message at the center with offset
-
+  elif y is None:
+    y = h // 2 - y_offset # Display the message at the center with offset
+  if x is None:
+    x = w//2 - len(message)//2 # Center horizontally if no x is provided
   # Apply color if provided
   if color_pair:
     stdscr.attron(curses.color_pair(color_pair))
@@ -171,11 +173,12 @@ def display_message(stdscr, message, color_pair=None, y_offset = 0, bottom=False
 
 def handle_task_addition(stdscr, user):
   stdscr.clear()
-  stdscr.addstr(0, 0, 'Enter the new task: ')
+  display_message(stdscr, 'Enter the new task: ', y=0,x=0)
   curses.echo()
   new_task = stdscr.getstr(1, 0).decode('utf-8').strip()
 
   stdscr.addstr(2,0, 'Enter the task category: ')
+  display_message(stdscr, 'Enter the task category: ', y=2,x=0)
   new_category = stdscr.getstr(3,0).decode('utf-8').strip()
 
   curses.noecho()
